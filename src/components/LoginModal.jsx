@@ -1,15 +1,40 @@
 import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
 
-export default function LoginModal({ onClose, onLogin }) {
-  const [mode, setMode] = useState("login"); // "login" | "signup"
+export default function LoginModal({ onClose }) {
+  const { logIn, signUp } = useAuth();
+  const [mode, setMode] = useState("login");
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    // Placeholder — will wire to Firebase Auth later
-    if (email && password) {
-      onLogin({ email, name: email.split("@")[0] });
+  const handleSubmit = async () => {
+    setError("");
+    if (!email || !password) { setError("Please fill in all fields."); return; }
+    if (mode === "signup" && !displayName) { setError("Please enter your name."); return; }
+
+    setLoading(true);
+    try {
+      if (mode === "login") {
+        await logIn(email, password);
+      } else {
+        await signUp(email, password, displayName);
+      }
       onClose();
+    } catch (err) {
+      const map = {
+        "auth/user-not-found": "No account with that email.",
+        "auth/wrong-password": "Wrong password.",
+        "auth/email-already-in-use": "Email already in use.",
+        "auth/weak-password": "Password must be at least 6 characters.",
+        "auth/invalid-email": "Invalid email address.",
+        "auth/invalid-credential": "Invalid email or password.",
+      };
+      setError(map[err.code] || "Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -17,32 +42,34 @@ export default function LoginModal({ onClose, onLogin }) {
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-sheet">
         <div className="modal-handle" />
-
         <div style={styles.container}>
-          {/* Logo */}
           <div style={styles.logo}>NIGHTOUT</div>
           <div style={styles.tagline}>
             {mode === "login" ? "Welcome back 🍺" : "Join the night 🎉"}
           </div>
 
-          {/* Mode tabs */}
           <div style={styles.tabs}>
-            <button
-              style={{ ...styles.tab, ...(mode === "login" ? styles.tabActive : {}) }}
-              onClick={() => setMode("login")}
-            >
-              LOG IN
-            </button>
-            <button
-              style={{ ...styles.tab, ...(mode === "signup" ? styles.tabActive : {}) }}
-              onClick={() => setMode("signup")}
-            >
-              SIGN UP
-            </button>
+            {["login", "signup"].map((m) => (
+              <button
+                key={m}
+                style={{ ...styles.tab, ...(mode === m ? styles.tabActive : {}) }}
+                onClick={() => { setMode(m); setError(""); }}
+              >
+                {m === "login" ? "LOG IN" : "SIGN UP"}
+              </button>
+            ))}
           </div>
 
-          {/* Inputs */}
           <div style={styles.form}>
+            {mode === "signup" && (
+              <input
+                style={styles.input}
+                type="text"
+                placeholder="Your name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            )}
             <input
               style={styles.input}
               type="email"
@@ -56,21 +83,25 @@ export default function LoginModal({ onClose, onLogin }) {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
           </div>
 
-          <button className="btn-primary" onClick={handleSubmit} style={{ marginBottom: 12 }}>
-            {mode === "login" ? "LET'S GO →" : "CREATE ACCOUNT →"}
-          </button>
+          {error && <div style={styles.error}>{error}</div>}
 
           <button
-            onClick={onClose}
-            style={styles.skipBtn}
+            className="btn-primary"
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{ opacity: loading ? 0.6 : 1, marginBottom: 12 }}
           >
-            Continue without logging in
+            {loading ? "..." : mode === "login" ? "LET'S GO →" : "CREATE ACCOUNT →"}
           </button>
 
-          <div style={{ height: 32 }} />
+          <button onClick={onClose} style={styles.skipBtn}>
+            Continue without logging in
+          </button>
+          <div style={{ height: 36 }} />
         </div>
       </div>
     </div>
@@ -82,7 +113,7 @@ const styles = {
     padding: "24px 24px 0",
     display: "flex",
     flexDirection: "column",
-    gap: 16,
+    gap: 14,
   },
   logo: {
     fontFamily: "var(--font-display)",
@@ -99,7 +130,7 @@ const styles = {
     fontSize: 14,
     color: "rgba(255,255,255,0.4)",
     fontWeight: 300,
-    marginTop: -8,
+    marginTop: -6,
   },
   tabs: {
     display: "flex",
@@ -141,6 +172,14 @@ const styles = {
     color: "#fff",
     fontFamily: "var(--font-body)",
     outline: "none",
+  },
+  error: {
+    background: "rgba(239,68,68,0.12)",
+    border: "1px solid rgba(239,68,68,0.25)",
+    borderRadius: 10,
+    padding: "10px 14px",
+    fontSize: 13,
+    color: "#f87171",
   },
   skipBtn: {
     background: "none",
