@@ -2,8 +2,8 @@ import { useState } from "react";
 import "./styles/global.css";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import BarsPage from "./pages/BarsPage";
-/* import CameraPage from "./pages/CameraPage";
-import MapPage from "./pages/MapPage"; */
+import CameraPage from "./pages/CamerasPage";
+import MapPage from "./pages/MapPage"; 
 import SettingsPage from "./pages/SettingsPage";
 import LoginModal from "./components/LoginModal";
 
